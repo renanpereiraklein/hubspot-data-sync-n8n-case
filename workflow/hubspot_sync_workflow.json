@@ -1,0 +1,763 @@
+{
+  "name": "hubspot-contact-sync-engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        640
+      ],
+      "id": "6606521f-a60e-4ea3-a1a2-797a5f9d4ae7",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "associatedCompanyId": "={{ $('Origin Company').item.json.companyId }}",
+          "city": "={{ $json.city }}",
+          "firstName": "={{ $json.firstname }}",
+          "lastName": "={{ $json.lastname }}",
+          "stateRegionCode": "={{ $json.state }}",
+          "streetAddress": "={{ $json.address }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        592,
+        688
+      ],
+      "id": "6d280175-6d62-44be-8dfe-60811bec3a8a",
+      "name": "Create or update a contact",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "REDACTED",
+          "name": "HUBSPOTAPPTOKEN_CREDENTIAL"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/v1/contacts",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.data.length === 0 }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -288,
+        608
+      ],
+      "id": "3fd7b15b-8dc7-42ae-8a36-fc3586421ee7",
+      "name": "Retrieve Data",
+      "retryOnFail": false,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        192,
+        592
+      ],
+      "id": "0f4eac39-0156-4b19-98ac-35af2f4a4a86",
+      "name": "Input Batch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "46a8ab7d-6152-4342-a08e-1df9ffc89e8d",
+              "name": "firstname",
+              "value": "={{ $json.name.split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "7bb0fa52-31d1-4712-bfc4-f4119fd40e36",
+              "name": "lastname",
+              "value": "={{ $json.name.split(' ').slice(1).join(' ') || '.' }}",
+              "type": "string"
+            },
+            {
+              "id": "d6834771-b9f5-4f7b-a31b-2473cd6fea9c",
+              "name": "address",
+              "value": "={{ $json.streetAddress }}",
+              "type": "string"
+            },
+            {
+              "id": "6401fddc-2773-47bb-a661-aa645218b5a9",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "c4fe24da-629f-41a1-8982-10fd5b597915",
+              "name": "city",
+              "value": "={{ $json.city }}",
+              "type": "string"
+            },
+            {
+              "id": "51368ba3-36e7-4d9f-898f-5102a72ac202",
+              "name": "state",
+              "value": "={{ $json.state }}",
+              "type": "string"
+            },
+            {
+              "id": "66691515-6529-46a5-ab0e-14ebee88d407",
+              "name": "origincompany",
+              "value": "={{ $('Origin Company').item.json.properties.name.value }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        688
+      ],
+      "id": "82422c91-7c3c-4a16-bac8-848d4b9a1c78",
+      "name": "Contact Properties"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e15ceaa1-14c6-4d8d-bc3b-d35293f5adfb",
+              "name": "contactID",
+              "value": "={{ $('Create or update a contact').item.json['canonical-vid'] }}",
+              "type": "number"
+            },
+            {
+              "id": "34cd4e02-155c-4c5b-87d1-036ac37bc01c",
+              "name": "companyID",
+              "value": "={{ $('Get a company').item.json.companyId }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        688
+      ],
+      "id": "63f24506-2a28-4873-a77d-f8f1ce1b5357",
+      "name": "Association ID's"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.hubapi.com/crm/v4/objects/contacts/{{$json.contactID}}/associations/default/companies/{{$json.companyID}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1040,
+        688
+      ],
+      "id": "b4c5ba38-155f-43ba-bee8-7697bcba179b",
+      "name": "Association",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "REDACTED",
+          "name": "HUBSPOTAPPTOKEN_CREDENTIAL"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        592
+      ],
+      "id": "312646bd-ef8c-4cc7-967e-dcd243c76ca2",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "company",
+        "operation": "get",
+        "companyId": {
+          "__rl": true,
+          "value": "REDACTED_COMPANY_ID",
+          "mode": "list",
+          "cachedResultName": "REDACTED"
+        },
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        -912,
+        640
+      ],
+      "id": "6824601c-07c3-45ae-9d19-ef76c37d414f",
+      "name": "Origin Company",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "REDACTED",
+          "name": "HUBSPOTAPPTOKEN_CREDENTIAL"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "company",
+        "operation": "get",
+        "companyId": {
+          "__rl": true,
+          "value": "REDACTED_COMPANY_ID",
+          "mode": "list",
+          "cachedResultName": "REDACTED"
+        },
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        -592,
+        624
+      ],
+      "id": "e0e53604-106f-4f04-be71-4e1d70766376",
+      "name": "Get a company",
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "REDACTED",
+          "name": "HUBSPOTAPPTOKEN_CREDENTIAL"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "REDACTED_EMAIL",
+        "subject": "Workflow Execution Report",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n    <style>\n        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333333; }\n        .container { width: 100%; max-width: 600px; margin: 0 auto; border: 1px solid #eeeeee; border-radius: 8px; overflow: hidden; }\n        .header { background-color: #ff6d5a; color: #ffffff; padding: 20px; text-align: center; }\n        .content { padding: 30px; }\n        .footer { background-color: #f9f9f9; color: #999999; padding: 15px; text-align: center; font-size: 12px; }\n        .status-badge { background-color: #28a745; color: #ffffff; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h2>n8n Workflow Execution</h2>\n        </div>\n        <div class=\"content\">\n            <p>Hi there,</p>\n            <p>The following workflow has been executed <strong>successfully</strong>:</p>\n            <p><strong>Status:</strong> <span class=\"status-badge\">COMPLETED</span></p>\n            <p><strong>Execution Date:</strong> {{ $now.format('yyyy-MM-dd HH:mm:ss') }}</p>\n            <hr style=\"border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;\">\n            <p>Workflow completed. Successful records synced. For exceptions and failed items, refer to the internal Error Logging database.</p>\n        </div>\n        <div class=\"footer\">\n            Sent automatically by your n8n Automation Engine.\n        </div>\n    </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        320
+      ],
+      "id": "941a976a-50bf-40e2-bdb3-4430079eb58a",
+      "name": "Send a message",
+      "webhookId": "REDACTED",
+      "executeOnce": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REDACTED",
+          "name": "GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "REDACTED_EMAIL",
+        "subject": "Critical Workflow Failure",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n    <style>\n        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333333; }\n        .container { width: 100%; max-width: 600px; margin: 0 auto; border: 1px solid #eeeeee; border-radius: 8px; overflow: hidden; }\n        .header { background-color: #ff6d5a; color: #ffffff; padding: 20px; text-align: center; }\n        .content { padding: 30px; }\n        .footer { background-color: #f9f9f9; color: #999999; padding: 15px; text-align: center; font-size: 12px; }\n        .status-badge { background-color: #dc3545; color: #ffffff; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h2>n8n Workflow Execution</h2>\n        </div>\n        <div class=\"content\">\n            <p>Hi there,</p>\n            <p>The following workflow has <strong>failed</strong>:</p>\n            <p><strong>Status:</strong> <span class=\"status-badge\">FAILED</span></p>\n            <p><strong>Execution Date:</strong> {{ $now.format('yyyy-MM-dd HH:mm:ss') }}</p>\n            <hr style=\"border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;\">\n        </div>\n        <div class=\"footer\">\n            Sent automatically by your n8n Automation Engine.\n        </div>\n    </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        1024
+      ],
+      "id": "35d95b3b-ff3e-4523-91bd-578458377611",
+      "name": "Data Error",
+      "webhookId": "REDACTED",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REDACTED",
+          "name": "GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Getting original company",
+        "height": 384,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        512
+      ],
+      "id": "6634bc1f-a682-4a4e-bb45-7c4ad1185ba0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Getting associated company",
+        "height": 384,
+        "width": 272
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        512
+      ],
+      "id": "6cd3c16e-93aa-481d-a5d4-fbe1c7a2da99",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Retrieving contacts",
+        "height": 384,
+        "width": 272
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        512
+      ],
+      "id": "883cfc1c-5770-413b-b12c-c5706bf698f2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Upserting contacts",
+        "height": 384,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        128,
+        512
+      ],
+      "id": "624af2aa-3150-426c-8f87-d0ab5e1d121f",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Associating Company",
+        "height": 384,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        800,
+        512
+      ],
+      "id": "ec5f5b43-4178-4acc-b245-f534d4b932dc",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Splitting results",
+        "height": 384,
+        "width": 160
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        512
+      ],
+      "id": "1bd7f13f-f838-456c-80aa-e2b5b7a472a4",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Notification user",
+        "height": 240,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        448,
+        240
+      ],
+      "id": "3c63fc71-b7dd-46a6-a4cc-0f8e2fd0a8f4",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Error notification",
+        "height": 304,
+        "width": 160
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        912
+      ],
+      "id": "e94e66e8-789e-45ca-a114-67f2ba5d04c3",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "REDACTED_DATATABLE_ID",
+          "mode": "list",
+          "cachedResultName": "REDACTED",
+          "cachedResultUrl": "REDACTED"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $json.email }}",
+            "origincompany": "={{ $json.origincompany }}",
+            "error": "={{ $json.error }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "origincompany",
+              "displayName": "origincompany",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        832,
+        1040
+      ],
+      "id": "fd171091-9ae3-484d-83d6-5aeb31de9e70",
+      "name": "upsertErrors"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "REDACTED_DATATABLE_ID",
+          "mode": "list",
+          "cachedResultName": "REDACTED",
+          "cachedResultUrl": "REDACTED"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message": "={{ $json.error.message }}",
+            "contactID": "={{ $json.contactID }}",
+            "companyID": "={{ $json.companyID }}",
+            "description": "={{ $json.error.description }}"
+          },
+          "matchingColumns": [
+            "content"
+          ],
+          "schema": [
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "contactID",
+              "displayName": "contactID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "companyID",
+              "displayName": "companyID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        1040
+      ],
+      "id": "ed2a35ae-a8dc-47ad-9746-f3b38bca9f67",
+      "name": "associationErrors"
+    },
+    {
+      "parameters": {
+        "content": "## Error logging",
+        "height": 304,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        800,
+        912
+      ],
+      "id": "ea6ac06e-f2f7-4631-9329-a7418e040402",
+      "name": "Sticky Note8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Origin Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create or update a contact": {
+      "main": [
+        [
+          {
+            "node": "Association ID's",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "upsertErrors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Data": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Batch": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contact Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Properties": {
+      "main": [
+        [
+          {
+            "node": "Create or update a contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Association ID's": {
+      "main": [
+        [
+          {
+            "node": "Association",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Association": {
+      "main": [
+        [
+          {
+            "node": "Input Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "associationErrors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Input Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Origin Company": {
+      "main": [
+        [
+          {
+            "node": "Get a company",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a company": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Data Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "REDACTED",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED"
+  },
+  "id": "REDACTED",
+  "tags": []
+}
